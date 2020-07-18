@@ -1,0 +1,861 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<style>
+  body {
+    padding: 100px;
+    width: 1000px;
+    margin: auto;
+    text-align: left;
+    font-weight: 300;
+    font-family: 'Open Sans', sans-serif;
+    color: #121212;
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Source Sans Pro', sans-serif;
+  }
+</style>
+<title>CS 284A Mesh Editor</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+</head>
+
+
+<body>
+
+<h1 align="middle">CS 284A: Computer Graphics and Imaging, Spring 2018</h1>
+<h1 align="middle">Project 2: Mesh Editor</h1>
+<h2 align="middle">Gauthier Dieppedalle, CS199-btx</h2>
+
+<br><br>
+
+<div>
+  
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}});
+</script>
+<script src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script>
+
+<h2 align="middle">Overview</h2>
+<p>In this project, I added geometrical processing features to the MeshEdit application. First I implemented bezier curves and bezier surfaces and then I added the ability for the user to apply loop subdivision for general triangles meshes. This project was very helful in familiarizing myself with the half edge data structure.</p>
+
+<h2 align="middle">Section I: Bezier Curves and Surfaces</h2>
+
+
+<h3 align="middle">Part 1: Bezier curves with 1D de Casteljau subdivision</h3>
+Firstly, I added the ability for the user to add bezier curves in the MeshEdit application generating them using the de Casteljau's algorithm. This algorithm is used to recursively evaluate the points forming a bezier curve defined by its control points. The algorithm inserts a point using linear interpolation on each edge formed by the polyline of the control points. The program then interpolates in a similar manner the generated vertices and repeats recursively until one one vertex is left. The remaining vertex defines one of the points of the bezier curve. The interpolation is done according to a variable $t$. By changing that variable, the program then calculates each point of the bezier curve.
+</p>
+In order to implement <code>void BezierCurve::evaluateStep()</code>, I simply iterated through each vertex of the last evaluated level from <code>evaluatedLevels</code> by pair and linear interpolated both of the values according to the variable $t$. Then I appended all of the calculated vertices to a new array that I appended to <code>evaluatedLevels</code>. This ensured that at each level that the De Casteljau algorithm is applied the vertices created at the previous level would be linearly interpolated.
+</p>
+The following images are screenshots of each step of the evaluation from the original control points down to the final evaluated point. I used the keyboard command E to step through and toggled C to show the completed curve
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/bzl0.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bezier curve with six control points at level 0.</figcaption>
+      </td>
+      <td>
+        <img src="images/bzl1.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bezier curve with six control points at level 1.</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="images/bzl2.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bezier curve with six control points at level 2.</figcaption>
+      </td>
+      <td>
+        <img src="images/bzl3.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bezier curve with six control points at level 3.</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="images/bzl4.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bezier curve with six control points at level 4.</figcaption>
+      </td>
+      <td>
+        <img src="images/bzl5.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bezier curve with six control points at level 5.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/bzl6.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bezier curve with six control points at level 6.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+I then moved the points around and modified the value of $t$ by scrolling. I also made the bezier curve slightly different by moving the control points.
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/beziert.gif" align="middle" width="600px"/>
+        <figcaption align="middle">Bezier curve with six control points with different $t$.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+
+<h3 align="middle">Part 2: Bezier surfaces with separable 1D de Casteljau subdivision</h3>
+I then extended the de Casteljau's algorithm to create Bezier surfaces. By applying seperable 1D de Casteljau's algorithm in both dimensions of the 2D vector representing the control points, I was able to draw each point of the bezier surface.</p>
+
+In other words, I iterated through each row of control points. I then applied de Casteljau's algorithm on each $i$th row of control points with parameter $u$. The generated control points are called $q(i, u)$. Then I iterated through each $q(i, u)$ and applied de Casteljau's algorithm with parameter $v$. The generated control point is called $p(u, v)$. I then returned the generated point $p(u, v)$. </p>
+
+In my code the <code>evaluate1D</code> function recursively evaluates the point generated by de Casteljau's algorithm of a given parameter and list of control points. The base condition is when there is only one control point remaining. The function calculates all the control points of the evaluate steps and then feeds the newly created control points back to the <code>evaluate1D</code> function.
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/teapotPart2.png" align="middle" width="600px"/>
+        <figcaption align="middle">bez/teapot.dae: Teapot generated using bezier surfaces.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+The pseudocode is the following:</p>
+<code display="block" white-space="pre-wrap">
+For each row i:</p>
+&nbsp &nbsp &nbsp &nbsp Let q(i, u) := apply de Casteljau's algorithm with parameter $u$ to the i-th row of control points</p>
+
+Let p(u, v) := apply de Casteljau's algorithm with parameter $v$ to all q(i, u)</p>
+Return p(u, v)
+</code>
+
+<h2 align="middle">Section II: Sampling</h2>
+
+<h3 align="middle">Part 3: Average normals for half-edge meshes</h3>
+In this part, I implemented the ability for the code to compute the average normals for half edge meshes for more realistic local shading compared to the regular flat shading technique. In order to calculate each vertex normal, we should iterate over each face connecting to that vertex and calculate the vertex normal using cross product of the edges. In order to iterate over each face we start from one half edge and then iterate by going to the next halfedge until we are at the initial position as in the following diagram:
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/part3Iterate.png" align="middle" width="400px"/>
+        <figcaption align="middle">Iterating through each face given a vertex.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+In the above diagram <code>edge0</code> and <code>edge1</code> of each face are used to compute the normal vector using the cross product $edge0 \times edge1$. We can iterate to the next face by using the following piece of code:  <code>h = h->next(); h = h->twin();</code>. The logic can be understood by stepping through the diagram above. When iterating through each face the cross product is added to a summed of normal vectors for that vertex. Once we have iterated through each face, we then return the normalized normal vector of the vertex. The following meshes are obtained for dae/teapot.dae using the default OpenGL shading with and without smoothed normals:
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/teapotPart3NotShade.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae without smoothed normals.</figcaption>
+      </td>
+      <td>
+        <img src="images/teapotPart3Shade.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae with smoothed normals.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+</p>
+Calculating the vertex normal makes the surfaces more smooth.
+
+
+<h3 align="middle">Part 4: Half-edge flip</h3>
+In this part, I added the ability for the user to flip edges in a given face. An example flipped edge can be found in the image below:</p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/flip.jpg" align="middle" width="500px"/>
+        <figcaption align="middle">Example flipped edge.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+In order to flip an edge, I first decided to draw out the above diagram in powerpoint to show how an edge should be flipped. I then listed all of the <code>HalfedgeIter</code>, <code>VertexIter</code>, <code>EdgeIter</code>, and <code>FaceIter</code> in my code and assigning them to variables in the function. I called the variables the same way I called them on my diagram for easy debugging purposes. Then for every element in the image, I set all the pointers even if they did not change in the <code>flip</code> operation. I set all of the neighbors of each half edge using the function <code>setNeighbors</code>. Then for each face, vertex, and edge I set the halfedge variable to one of the halfedge of the new data structure.</p>
+
+At first I tried writing my code by referring to each object without creating any new variables. I had a bug somewhere in my code, so I decided to completely rewrite my code using the advice in the instructions by assigning each face, vertex, edge, and halfedge used to a variable. </p>
+
+The following are examples of four flipped edges:
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/teapot1Part4.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae First edge selected.</figcaption>
+      </td>
+      <td>
+        <img src="images/teapot2Part4.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae First edge flipped.</figcaption>
+      </td>
+    </tr> 
+    <tr>
+      <td>
+        <img src="images/teapot3Part4.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Second edge selected.</figcaption>
+      </td>
+      <td>
+        <img src="images/teapot4Part4.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Second edge flipped.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/teapot5Part4.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Third edge selected.</figcaption>
+      </td>
+      <td>
+        <img src="images/teapot6Part4.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Third edge flipped.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/teapot7Part4.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Fourth edge selected.</figcaption>
+      </td>
+      <td>
+        <img src="images/teapot8Part4.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Fourth edge flipped.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<h3 align="middle">Part 5: Half-edge split</h3>
+In this part, I implemented the ability for the user to split edges as in the following diagram: </p>
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/split.jpg" align="middle" width="500px"/>
+        <figcaption align="middle">Example split edge.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+In order to split the edges I used a similar technique then for flipping edges. We first need to check that the edge to split is not a boundary edge. Then I drew out the diagram above and assigned a variable to each of the objects. I then created two new faces, one new vertex, three new edges, and six half edges. The new vertex position is at half of the original edge. I stepped through my diagram above and assigned all the nieghbors using <code>setNeighbors</code> and by assigning half edges.</p>
+
+I ran into issues developing this function because at first I forgot to assign the halfedges and only called <code>setNeighbors</code>. As a result when I splitted an edge multiple times, I had some faces disappearing. I then stepped through my code and the variable in each construct and discovered that the half edges needed to be set.</p>
+
+Here are screenshots of a mesh before and after some edge splits:
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/teapot1Part5.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae First edge selected.</figcaption>
+      </td>
+      <td>
+        <img src="images/teapot2Part5.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae First edge split.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/teapot3Part5.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Second edge selected.</figcaption>
+      </td>
+      <td>
+        <img src="images/teapot4Part5.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Second edge split.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/teapot5Part5.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Third edge selected.</figcaption>
+      </td>
+      <td>
+        <img src="images/teapot6Part5.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Third edge split.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/teapot7Part5.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Fourth edge selected.</figcaption>
+      </td>
+      <td>
+        <img src="images/teapot8Part5.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Fourth edge split.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+</p>
+Here are screenshots of a mesh before and after a combination both edge splits and edge flips:</p>
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/teapot1Part5a.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae First edge selected.</figcaption>
+      </td>
+      <td>
+        <img src="images/teapot2Part5a.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae First edge flipped.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/teapot3Part5a.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Second edge selected.</figcaption>
+      </td>
+      <td>
+        <img src="images/teapot4Part5a.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Second edge split.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/teapot5Part5a.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Third edge selected.</figcaption>
+      </td>
+      <td>
+        <img src="images/teapot6Part5a.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Third edge flipped.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/teapot7Part5a.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Fourth edge selected.</figcaption>
+      </td>
+      <td>
+        <img src="images/teapot8Part5a.png" align="middle" width="400px"/>
+        <figcaption align="middle">dae/teapot.dae Fourth edge split.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+<h4 align="middle">Extra Credit: Edge Split for Boundary Edges</h4>
+In this part, I implemented edge split for boundary edges. In order to check if an edge that is going to be split is not a boundary edge I have the following condition: </p>
+<code>!e0->isBoundary() && !e0->halfedge()->twin()->face()->isBoundary()</code></p>
+If the edge is a boundary then we need to split the edge as following:
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/boundarySplit.png" align="middle" width="500px"/>
+        <figcaption align="middle">Splitting a boundary edge.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+In order to implement the above algorithm I used a similar technique then for the boundary case. I assigned a new variable for each element that is in the diagram above. The only major difference with this technique is that I need to set the neighbors of the edges cm and mb. Those edges need to have the next halfedge set to the appropriate next halfedge in order to ensure that it is possible to traverse the boundary face. At first I forgot to set these variables and my program was running indefinitely. By splitting edges on boundary edges of <code>dae/beetle.dae</code>, I obtained the following screenshots:
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/boundarySplitBeetle1.png" align="middle" width="400px"/>
+        <figcaption align="middle">Splitting a boundary edge on <code>dae/beetle.dae</code>.</figcaption>
+      </td>
+      <td>
+        <img src="images/boundarySplitBeetle2.png" align="middle" width="400px"/>
+        <figcaption align="middle">Splitting a boundary edge on <code>dae/beetle.dae</code>.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/boundarySplitBeetle3.png" align="middle" width="400px"/>
+        <figcaption align="middle">Splitting a boundary edge on <code>dae/beetle.dae</code>.</figcaption>
+      </td>
+      <td>
+        <img src="images/boundarySplitBeetle4.png" align="middle" width="400px"/>
+        <figcaption align="middle">Splitting a boundary edge on <code>dae/beetle.dae</code>.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/boundarySplitBeetle5.png" align="middle" width="400px"/>
+        <figcaption align="middle">Splitting a boundary edge on <code>dae/beetle.dae</code>.</figcaption>
+      </td>
+      <td>
+        <img src="images/boundarySplitBeetle6.png" align="middle" width="400px"/>
+        <figcaption align="middle">Splitting a boundary edge on <code>dae/beetle.dae</code>.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/boundarySplitBeetle7.png" align="middle" width="400px"/>
+        <figcaption align="middle">Splitting a boundary edge on <code>dae/beetle.dae</code>.</figcaption>
+      </td>
+      <td>
+        <img src="images/boundarySplitBeetle8.png" align="middle" width="400px"/>
+        <figcaption align="middle">Splitting a boundary edge on <code>dae/beetle.dae</code>.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<h3 align="middle">Part 6: Loop subdivision for mesh upsampling</h3>
+In this part, I implemented loop subdvision for mesh upsampling. Loop subdivision is a subdivision technique for triangle meshes. During the process, each triangle is divided into 4 triangles as in the figure below:
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/loopSub.png" align="middle" width="500px"/>
+        <figcaption align="middle">Subdividing a single triangle using loop subdvision.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+Simply splitting a triangle into 4 different triangles will not upsample a mesh but instead we need to split and use a form of interpolation to move some of the vertices according to its neighbors location. The new position of a given vertex is given by the below formula:
+\[
+(1 - n \cdot u) \cdot \text{original_position} + u \cdot \text{neighbor_position_sum}
+\]
+where $n$ is the degree of the vertex and $u$ takes the form:
+\[
+u=\begin{cases}
+     \frac{3}{16} \text{ if } n=3 \\
+     \frac{3}{8 \cdot n} \text{ otherwise}
+  \end{cases}
+\]
+
+original_position corresponds to the orginal position of the vertex and neighbor_position_sum corresponds to the sum of the position of neighboring vertices. The position of a new vertex that splits edge AB and flanked by vertices C and D across two faces connecting AB will be:
+\[
+\frac{3}{8} \cdot (A+B) + \frac{1}{8} \cdot (C+D)
+\]
+
+This can then be illustrated in the following diagram:</p>
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/edgeVertVal.jpg" align="middle" width="500px"/>
+        <figcaption align="middle">Position of vertices in loop subdivision.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+</p>
+
+My algorithm iterates over all of the vertices and calculates the new position based on the first formula above. As it traverse each vertex, the program marks them as new. Then the algorithm computes the position of the vertices positioned at edge midpoints using the second formula above. The program will then iterate over each edge to split them calling the <code>split</code> function that I implemented from the previous part. It flips any new edges that connects an old and new vertex. Then we finally update the new vertex position to the current vertex position for every vertices in the mesh.</p>
+
+In this part I did not run into that many issues during the implementation and debugging. At first when checking which edges to flip I only check if the two vertices of the edge were connecting to an old and new vertex but did not check that the edge was new. As a result, the upsampling did not work because there was an infinite loop. I stepped through my code line by line and read through the documentation for the code again to understand where my issue could come frome. After a couple of hours, I was able to discover that checking that the edge was new was an important part of the loop subdivision algorithm. I was able to find the bug by knowing that my error must come from one of the if cases of a for loop.</p>
+
+The following screenshots are obtained using loop subdvisions on several sample meshes:
+</p>
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/icosahedron0.png" align="middle" width="400px"/>
+        <figcaption align="middle">Level 0 loop subdivision on icosahedron.</figcaption>
+      </td>
+      <td>
+        <img src="images/icosahedron1.png" align="middle" width="400px"/>
+        <figcaption align="middle">Level 1 loop subdivision on icosahedron.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/icosahedron2.png" align="middle" width="400px"/>
+        <figcaption align="middle">Level 2 loop subdivision on icosahedron.</figcaption>
+      </td>
+      <td>
+        <img src="images/icosahedron3.png" align="middle" width="400px"/>
+        <figcaption align="middle">Level 3 loop subdivision on icosahedron.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/icosahedron4.png" align="middle" width="400px"/>
+        <figcaption align="middle">Level 4 loop subdivision on icosahedron.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/torus0.png" align="middle" width="400px"/>
+        <figcaption align="middle">Level 0 loop subdivision on torus.</figcaption>
+      </td>
+      <td>
+        <img src="images/torus1.png" align="middle" width="400px"/>
+        <figcaption align="middle">Level 1 loop subdivision on torus.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/torus2.png" align="middle" width="400px"/>
+        <figcaption align="middle">Level 2 loop subdivision on torus.</figcaption>
+      </td>
+      <td>
+        <img src="images/torus3.png" align="middle" width="400px"/>
+        <figcaption align="middle">Level 3 loop subdivision on torus.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/torus4.png" align="middle" width="400px"/>
+        <figcaption align="middle">Level 4 loop subdivision on torus.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/cube0.png" align="middle" width="400px"/>
+        <figcaption align="middle">Level 0 loop subdivision on cube.</figcaption>
+      </td>
+      <td>
+        <img src="images/cube1.png" align="middle" width="400px"/>
+        <figcaption align="middle">Level 1 loop subdivision on cube.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/cube2.png" align="middle" width="400px"/>
+        <figcaption align="middle">Level 2 loop subdivision on cube.</figcaption>
+      </td>
+      <td>
+        <img src="images/cube3.png" align="middle" width="400px"/>
+        <figcaption align="middle">Level 3 loop subdivision on cube.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/cube4.png" align="middle" width="400px"/>
+        <figcaption align="middle">Level 4 loop subdivision on cube.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+</p>
+From the above screenshots, we can see that each level of loop subdivision produces a smoother and smaller mesh. Sharp corners and edges are smoothed out. This can be explained by the fact that the new vertices position are interpolated from the neighboring vertices. Each triangle is seperated into four different triangles, in which the newly created vertices are placed in a way to smoothen out the mesh (using interpolation). We can lessen this effect by pre-splitting some of the faces. By splitting edges, we make neighboring vertices closer to each other and as a result, the position of the interpolated neighboring vertices will also be shifting less then from the original position. In the screenshots below, I splitted the edges of the cube multiple times near one of the corners of the cube to make that corner stay sharp. I obtained the following screenshots:
+</p>
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/cubeSharp0.png" align="middle" width="500px"/>
+        <figcaption align="middle">Level 0 subdividing cube with split edges</figcaption>
+      </td>
+      <td>
+        <img src="images/cubeSharp1.png" align="middle" width="500px"/>
+        <figcaption align="middle">Level 1 subdividing cube with split edges</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/cubeSharp2.png" align="middle" width="500px"/>
+        <figcaption align="middle">Level 2 subdividing cube with split edges</figcaption>
+      </td>
+      <td>
+        <img src="images/cubeSharp3.png" align="middle" width="500px"/>
+        <figcaption align="middle">Level 3 subdividing cube with split edges</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/cubeSharp4.png" align="middle" width="500px"/>
+        <figcaption align="middle">Level 4 subdividing cube with split edges</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+</p>
+Similarly this can be done on other meshes such as on the icosahedron:
+</p>
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/icosahedronSharp0.png" align="middle" width="500px"/>
+        <figcaption align="middle">Level 0 subdividing icosahedron with split edges</figcaption>
+      </td>
+      <td>
+        <img src="images/icosahedronSharp1.png" align="middle" width="500px"/>
+        <figcaption align="middle">Level 1 subdividing icosahedron with split edges</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/icosahedronSharp2.png" align="middle" width="500px"/>
+        <figcaption align="middle">Level 2 subdividing icosahedron with split edges</figcaption>
+      </td>
+      <td>
+        <img src="images/icosahedronSharp3.png" align="middle" width="500px"/>
+        <figcaption align="middle">Level 3 subdividing icosahedron with split edges</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/icosahedronSharp4.png" align="middle" width="500px"/>
+        <figcaption align="middle">Level 4 subdividing icosahedron with split edges</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+</p>
+Several iterations of Loop subdivision on the cube from <code>dae/cube.dae</code> the cube becomes slightly asymmetric after repeated subdivision steps. This asymmetric behavior is due to the fact that the edges over the faces of the cube are not symmetric around the entire cube. For example in the figures above we can see that some of the corners only have one splitted edge while other corners of the cube have two splitted edge.
+</p>
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/cube1Split.png" align="middle" width="500px"/>
+        <figcaption align="middle">Corner of cube with 1 splitted edge</figcaption>
+      </td>
+      <td>
+        <img src="images/cube2Split.png" align="middle" width="500px"/>
+        <figcaption align="middle">Corner of cube with 2 splitted edge</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+</p>
+Therfore, when applying loop subdvision some of the positions computed for vertices will not by symmetric across the cube as each vertex does not have the same number and direction of neighbors. The average position will then be assymetric across the cube. </p>
+</p>
+If we pre-process the cube by splitting the edges evenly across all of the cube we can then obtain a symmetrical subdivided mesh as in the following image:
+</p>
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/cubeEven0.png" align="middle" width="500px"/>
+        <figcaption align="middle">Level 0 loop subdivsion of cube with evenly split faces.</figcaption>
+      </td>
+      <td>
+        <img src="images/cubeEven1.png" align="middle" width="500px"/>
+        <figcaption align="middle">Level 1 loop subdivsion of cube with evenly split faces.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/cubeEven2.png" align="middle" width="500px"/>
+        <figcaption align="middle">Level 2 loop subdivsion of cube with evenly split faces.</figcaption>
+      </td>
+      <td>
+        <img src="images/cubeEven3.png" align="middle" width="500px"/>
+        <figcaption align="middle">Level 3 loop subdivsion of cube with evenly split faces.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/cubeEven4.png" align="middle" width="500px"/>
+        <figcaption align="middle">Level 4 loop subdivsion of cube with evenly split faces.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+</p>
+The subdivided mesh is symmetrical because the cube edges are symmetrical split accross the entire mesh. As a result, the faces are symmetrical in the mesh and the subdivided mesh is therefore also stays symmetrical.
+
+<h4 align="middle">Extra Credit: Support surfaces with boundary</h4>
+In this part I supported the loop subdivision for borders. According to the following slides that I found online: <a href="https://inst.eecs.berkeley.edu/~cs283/sp13/lectures/283-lecture7.pdf">https://inst.eecs.berkeley.edu/~cs283/sp13/lectures/283-lecture7.pdf</a>, the new edge vertices and old vertices need to take the following positions for borders:</p>
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/edgeVertValBoundary.png" align="middle" width="500px"/>
+        <figcaption align="middle">Position of vertices in loop subdivision for borders.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+</p>
+In terms of the edge vertices, I can check that an edge is a border using the following condition: </p>
+<code>!e->isBoundary() && !e->halfedge()->twin()->face()->isBoundary()</code></p>
+If the condition is false then we need to use the weighting from the above diagram, where the position of the new edge vertex must be:
+\[
+\frac{1}{2} \cdot (A+B)
+\]
+The position of the old vertices in the mesh can be inferred by using the following equation:
+\[
+\frac{1}{8} \cdot (A+B) + \frac{3}{4} \cdot \text{original_position}
+\]
+
+By checking if an edge is a boundary and using the above conditions, I obtained the following meshes when subdividing:</p>
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/beetleSub0.png" align="middle" width="400px"/>
+        <figcaption align="middle">Loop subdivision level 0 of <code>dae/beetle.dae</code>.</figcaption>
+      </td>
+      <td>
+        <img src="images/beetleSub1.png" align="middle" width="400px"/>
+        <figcaption align="middle">Loop subdivision level 1 of <code>dae/beetle.dae</code>.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/beetleSub2.png" align="middle" width="400px"/>
+        <figcaption align="middle">Loop subdivision level 2 of <code>dae/beetle.dae</code>.</figcaption>
+      </td>
+      <td>
+        <img src="images/beetleSub3.png" align="middle" width="400px"/>
+        <figcaption align="middle">Loop subdivision level 3 of <code>dae/beetle.dae</code>.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<h4 align="middle">Extra Credit: Implement additional subdivision schemes.</h4>
+<h5>Butterfly Subdivision.</h4>
+In this part I decided to implement butterfly subdivision. Butterfly subdivision is similar to loop subdivision except that the new position of vertices is interpolated from a larger neighborhood. The new edge vertices are placed according to the following diagram:</p>
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/butterfly.png" align="middle" width="500px"/>
+        <figcaption align="middle">Position of vertices in butterfly subdivision.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+</p>
+The old vertices are still placed in the same position as before. To implement this algorithm I used a similar technique then in the <code>splitEdge</code> function. I drew the above diagram and assigned a new variable to each element that I would use. I then copied my code from the loop subdivision but changed the weighting of the vertices to match the diagram above. I created a tetrahedron in Blender and exported the <code>.dae</code> to meshedit to be able to easily debug the program. I then obtained the following screenshots:</p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/butterfly0.png" align="middle" width="400px"/>
+        <figcaption align="middle">Butterfly subdivision level 0 of <code>dae/tetrahedron.dae</code>.</figcaption>
+      </td>
+      <td>
+        <img src="images/butterfly1.png" align="middle" width="400px"/>
+        <figcaption align="middle">Butterfly subdivision level 1 of <code>dae/tetrahedron.dae</code>.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/butterfly2.png" align="middle" width="400px"/>
+        <figcaption align="middle">Butterfly subdivision level 2 of <code>dae/tetrahedron.dae</code>.</figcaption>
+      </td>
+      <td>
+        <img src="images/butterfly3.png" align="middle" width="400px"/>
+        <figcaption align="middle">Butterfly subdivision level 3 of <code>dae/tetrahedron.dae</code>.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/butterfly4.png" align="middle" width="400px"/>
+        <figcaption align="middle">Butterfly subdivision level 4 of <code>dae/tetrahedron.dae</code>.</figcaption>
+      </td>
+      <td>
+        <img src="images/butterfly5.png" align="middle" width="400px"/>
+        <figcaption align="middle">Butterfly subdivision level 5 of <code>dae/tetrahedron.dae</code>.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/butterfly6.png" align="middle" width="400px"/>
+        <figcaption align="middle">Butterfly subdivision level 6 of <code>dae/tetrahedron.dae</code>.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+Running loop subdivision on the same <code>.dae</code> gave the following screenshots:</p>
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/loop0.png" align="middle" width="400px"/>
+        <figcaption align="middle">Loop subdivision level 0 of <code>dae/tetrahedron.dae</code>.</figcaption>
+      </td>
+      <td>
+        <img src="images/loop1.png" align="middle" width="400px"/>
+        <figcaption align="middle">Loop subdivision level 1 of <code>dae/tetrahedron.dae</code>.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/loop2.png" align="middle" width="400px"/>
+        <figcaption align="middle">Loop subdivision level 2 of <code>dae/tetrahedron.dae</code>.</figcaption>
+      </td>
+      <td>
+        <img src="images/loop3.png" align="middle" width="400px"/>
+        <figcaption align="middle">Loop subdivision level 3 of <code>dae/tetrahedron.dae</code>.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/loop4.png" align="middle" width="400px"/>
+        <figcaption align="middle">Loop subdivision level 4 of <code>dae/tetrahedron.dae</code>.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+</p>
+We can see that butterfly subdivision maintains more the sharp edges of a mesh compared to loop subdivision. In the example above, the tetrahedron is not recognizable using loop subdivision, while the general shape of the figure is still recognizable after several steps of butterfly subdivision. This behavior may be due to the fact that in butterfly subdivision the old vertices of a mesh are kept at the same position as before the subdivision is applied while only the new vertices have new positions. In loop subdivision both old and new vertices have new positions. Keeping the position of the old vertices ensures that the general shape of the mesh before subdivision is kept.
+
+<h2 align="middle">Section III: Mesh Competition</h2>
+<p>If you are not participating in the optional mesh competition, don't worry about this section!</p>
+
+<h3 align="middle">Part 7: Design your own mesh!</h3>
+For the mesh competition, I decided to build a bear again 🐻 (for the svg competition I also designed a bear ❤️)! </p>
+
+I watched the tutorial on how to do box modeling using Blender from the webpage and I started a project from scratch with a cube. I then decided to seperate the cube in two and delete one half. I applied a Blender mirror modifier in order to ensure that I only have to build one half of the mesh. The mirror modifier is a generator that automatically creates the same vertices mirrored along an axis. I then started extruding shapes in the cube and transformed the faces in order to model a bear. The bear in Blender can be seen in the following screenshot:
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/bearBlender.png" align="middle" width="500px"/>
+        <figcaption align="middle">Bear in Blender.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+</p>
+I then exported the bear as a Collada file and imported it in the MeshEdit application. I obtained the following screenshot:
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/bearMeshEdit.png" align="middle" width="500px"/>
+        <figcaption align="middle">Bear in MeshEdit.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+</p>
+I then applied several layers of subdvision and obtained the following screenshots:
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/bearMeshEdit1.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bear in MeshEdit with loop subdivision level 0.</figcaption>
+      </td>
+      <td>
+        <img src="images/bearMeshEdit2.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bear in MeshEdit with loop subdivision level 1.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/bearMeshEdit3.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bear in MeshEdit with loop subdivision level 2.</figcaption>
+      </td>
+      <td>
+        <img src="images/bearMeshEdit4.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bear in MeshEdit with loop subdivision level 3.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+</p>
+
+
+
+</body>
+</html>
